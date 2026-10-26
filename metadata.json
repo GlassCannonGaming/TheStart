@@ -1,0 +1,8 @@
+{
+  "name": "The House - 3D Autonomous Life Simulator",
+  "description": "A 3D autonomous life simulation diorama inspired by The Sims, featuring epistemically isolated multi-agent characters, smart objects, offline history generation, and a living background engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

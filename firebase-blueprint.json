@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "UserSave": {
+      "title": "UserSave",
+      "description": "Simulation save state in the user folder system",
+      "type": "object",
+      "properties": {
+        "saveId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "folder": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "slotName": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "isAutoSave": {
+          "type": "boolean"
+        },
+        "timestamp": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "simHour": {
+          "type": "number"
+        },
+        "simDay": {
+          "type": "number"
+        },
+        "characterCount": {
+          "type": "number"
+        },
+        "characters": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "objects": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "mechanicsData": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["saveId", "userId", "slotName", "timestamp", "simHour", "simDay"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and autosave settings",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "autoSaveEnabled": {
+          "type": "boolean"
+        },
+        "autoSaveIntervalSeconds": {
+          "type": "number"
+        },
+        "lastSavedSlot": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "displayName"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/saves/{saveId}": {
+      "schema": "UserSave",
+      "description": "User simulation snapshots partitioned by user folder"
+    },
+    "/users/{userId}/profile/config": {
+      "schema": "UserProfile",
+      "description": "User preferences and autosave loop configuration"
+    }
+  }
+}
