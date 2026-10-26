@@ -7413,3 +7413,316 @@ export function buildHouseholdRelationshipGraph(
     },
   };
 }
+
+// ============================================================================
+// DUAL-APPLICATION ARCHITECTURE: "THE HOUSE" (GAME) vs. "CREATION TOOLS"
+// ============================================================================
+
+export type ApplicationId = 'THE_HOUSE' | 'CREATION_TOOLS';
+
+export type CreationToolSystemId =
+  | 'HOUSE_BUILDER'
+  | 'ASSET_STUDIO'
+  | 'CAS_STUDIO'
+  | 'ROOM_STUDIO'
+  | 'WORLD_SCENARIO_CREATOR';
+
+export type AutonomousGameSystemId =
+  | 'AUTONOMOUS_TOON_LIFE_ENGINE'
+  | 'AUTONOMOUS_A_STAR_PATHING'
+  | 'AUTONOMOUS_BUILDER_RENOVATION_AI'
+  | 'AUTONOMOUS_ENTITY_ASSET_MANIFESTATION_AI'
+  | 'AUTONOMOUS_HOUSE_EVENTS_AI'
+  | 'AUTONOMOUS_KNOWLEDGE_INGESTION_AI'
+  | 'ENTITY_CONVERSATION_AND_PERSUASION';
+
+export type AnySystemId = CreationToolSystemId | AutonomousGameSystemId;
+
+export interface SystemAppClassification {
+  id: AnySystemId;
+  title: string;
+  shortLabel: string;
+  ownerApp: ApplicationId;
+  isUserAssetCreationSystem: boolean;
+  isAiControlledSystem: boolean;
+  assetKindCreated?: 'FURNITURE_3D_ASSET' | 'CHARACTER_TOON' | 'ROOM_TEMPLATE' | 'HOUSE_BLUEPRINT' | 'WORLD_SCENARIO';
+  description: string;
+}
+
+export const APPLICATION_SYSTEM_MANIFEST: Record<AnySystemId, SystemAppClassification> = {
+  // --- USER-OPERATED ASSET CREATION SYSTEMS -> "CREATION TOOLS" APP ---
+  HOUSE_BUILDER: {
+    id: 'HOUSE_BUILDER',
+    title: 'House & Lot Blueprint Builder',
+    shortLabel: 'Build House',
+    ownerApp: 'CREATION_TOOLS',
+    isUserAssetCreationSystem: true,
+    isAiControlledSystem: false,
+    assetKindCreated: 'HOUSE_BLUEPRINT',
+    description:
+      'User-controlled 3D architectural lot builder for placing walls, doors, windows, room blocks, stairs, wallpapers, flooring, and furnishings.',
+  },
+  ASSET_STUDIO: {
+    id: 'ASSET_STUDIO',
+    title: '3D Asset & Furniture Studio',
+    shortLabel: 'Asset Studio',
+    ownerApp: 'CREATION_TOOLS',
+    isUserAssetCreationSystem: true,
+    isAiControlledSystem: false,
+    assetKindCreated: 'FURNITURE_3D_ASSET',
+    description:
+      'User-operated studio for crafting custom SmartObjects, synthesizing multi-part 3D procedural meshes, and customizing room finishes.',
+  },
+  CAS_STUDIO: {
+    id: 'CAS_STUDIO',
+    title: 'Create-A-Toon Character Studio (CAS)',
+    shortLabel: 'Character Creator (CAS)',
+    ownerApp: 'CREATION_TOOLS',
+    isUserAssetCreationSystem: true,
+    isAiControlledSystem: false,
+    assetKindCreated: 'CHARACTER_TOON',
+    description:
+      'User-operated character creation suite for designing custom toons, skeletal proportions, outfits, traits, and life goals.',
+  },
+  ROOM_STUDIO: {
+    id: 'ROOM_STUDIO',
+    title: 'Room Studio & A* Pathing Database',
+    shortLabel: 'Room Studio',
+    ownerApp: 'CREATION_TOOLS',
+    isUserAssetCreationSystem: true,
+    isAiControlledSystem: false,
+    assetKindCreated: 'ROOM_TEMPLATE',
+    description:
+      'User-operated blank-grid room architect for designing, validating A* walkability, and saving reusable pre-made room templates.',
+  },
+  WORLD_SCENARIO_CREATOR: {
+    id: 'WORLD_SCENARIO_CREATOR',
+    title: 'World & Scenario Generator Studio',
+    shortLabel: 'World & Scenario Creator',
+    ownerApp: 'CREATION_TOOLS',
+    isUserAssetCreationSystem: true,
+    isAiControlledSystem: false,
+    assetKindCreated: 'WORLD_SCENARIO',
+    description:
+      'User-operated scenario & custom prompt world blueprint generator for creating new starting timelines and lot layouts.',
+  },
+
+  // --- AI-CONTROLLED AUTONOMOUS SYSTEMS -> "THE HOUSE" GAME APP ---
+  AUTONOMOUS_TOON_LIFE_ENGINE: {
+    id: 'AUTONOMOUS_TOON_LIFE_ENGINE',
+    title: 'Autonomous Toon Life, Needs, Skills & Social Engine',
+    shortLabel: 'Autonomous Toon AI',
+    ownerApp: 'THE_HOUSE',
+    isUserAssetCreationSystem: false,
+    isAiControlledSystem: true,
+    description:
+      '100% AI-controlled toon decision loop managing 1–10 basic needs, skill mastery trees, social affinity, reproduction, careers, and aging.',
+  },
+  AUTONOMOUS_A_STAR_PATHING: {
+    id: 'AUTONOMOUS_A_STAR_PATHING',
+    title: 'Autonomous A* Grid Navigation & Dynamic Obstacle Avoidance',
+    shortLabel: 'A* Navigation AI',
+    ownerApp: 'THE_HOUSE',
+    isUserAssetCreationSystem: false,
+    isAiControlledSystem: true,
+    description:
+      'Real-time 8-directional A* pathfinding across worldBlueprint and SmartObjects so autonomous toons never get stuck.',
+  },
+  AUTONOMOUS_BUILDER_RENOVATION_AI: {
+    id: 'AUTONOMOUS_BUILDER_RENOVATION_AI',
+    title: 'Autonomous Toon Builder & Catalog Renovation AI',
+    shortLabel: 'Autonomous Builder AI',
+    ownerApp: 'THE_HOUSE',
+    isUserAssetCreationSystem: false,
+    isAiControlledSystem: true,
+    description:
+      'AI-controlled builder toons autonomously expanding floors (Upstairs/Basement) and purchasing needed household furnishings with household funds.',
+  },
+  AUTONOMOUS_ENTITY_ASSET_MANIFESTATION_AI: {
+    id: 'AUTONOMOUS_ENTITY_ASSET_MANIFESTATION_AI',
+    title: 'Autonomous Entity 3D Asset Manifestation AI',
+    shortLabel: 'Entity Auto-Forge AI',
+    ownerApp: 'THE_HOUSE',
+    isUserAssetCreationSystem: false,
+    isAiControlledSystem: true,
+    description:
+      'AI-controlled Entity system that monitors household motives/skills and autonomously manifests missing 3D SmartObjects into valid rooms.',
+  },
+  AUTONOMOUS_HOUSE_EVENTS_AI: {
+    id: 'AUTONOMOUS_HOUSE_EVENTS_AI',
+    title: 'Autonomous House Events & Trait Imprinting AI',
+    shortLabel: 'Autonomous Events AI',
+    ownerApp: 'THE_HOUSE',
+    isUserAssetCreationSystem: false,
+    isAiControlledSystem: true,
+    description:
+      'AI-controlled sentient House events that trigger spontaneously, assign tasks to residents, and imprint Good/Bad personality traits.',
+  },
+  AUTONOMOUS_KNOWLEDGE_INGESTION_AI: {
+    id: 'AUTONOMOUS_KNOWLEDGE_INGESTION_AI',
+    title: 'Autonomous Newspaper & Literature Knowledgebase AI',
+    shortLabel: 'Knowledge Ingestion AI',
+    ownerApp: 'THE_HOUSE',
+    isUserAssetCreationSystem: false,
+    isAiControlledSystem: true,
+    description:
+      'AI-controlled media learning system where toons autonomously read newspapers and books to expand their IQ and conversational memory.',
+  },
+  ENTITY_CONVERSATION_AND_PERSUASION: {
+    id: 'ENTITY_CONVERSATION_AND_PERSUASION',
+    title: 'The House - Omniscient Entity Conversation & Persuasion',
+    shortLabel: 'Omniscient Entity AI',
+    ownerApp: 'THE_HOUSE',
+    isUserAssetCreationSystem: false,
+    isAiControlledSystem: true,
+    description:
+      'In-game voice and text dialogue with the sentient Entity where players persuade the AI Entity to aid the autonomous household.',
+  },
+};
+
+export function getSystemsForApp(appId: ApplicationId): SystemAppClassification[] {
+  return Object.values(APPLICATION_SYSTEM_MANIFEST).filter((sys) => sys.ownerApp === appId);
+}
+
+export function isUserCreationToolSystem(systemId: AnySystemId): boolean {
+  const entry = APPLICATION_SYSTEM_MANIFEST[systemId];
+  return Boolean(entry && entry.ownerApp === 'CREATION_TOOLS' && entry.isUserAssetCreationSystem);
+}
+
+export function isAiControlledGameSystem(systemId: AnySystemId): boolean {
+  const entry = APPLICATION_SYSTEM_MANIFEST[systemId];
+  return Boolean(entry && entry.ownerApp === 'THE_HOUSE' && entry.isAiControlledSystem);
+}
+
+export interface AppSplitState {
+  activeApp: ApplicationId;
+  activeCreationTool: CreationToolSystemId;
+  isWorldBuilderMode: boolean;
+}
+
+export type AppSplitAction =
+  | { type: 'OPEN_THE_HOUSE' }
+  | { type: 'OPEN_CREATION_TOOLS'; tool?: CreationToolSystemId }
+  | { type: 'SELECT_CREATION_TOOL'; tool: CreationToolSystemId };
+
+export function createInitialAppSplitState(initialApp: ApplicationId = 'THE_HOUSE'): AppSplitState {
+  return {
+    activeApp: initialApp,
+    activeCreationTool: 'HOUSE_BUILDER',
+    isWorldBuilderMode: initialApp === 'CREATION_TOOLS',
+  };
+}
+
+export function resolveAppSplitTransition(
+  state: AppSplitState,
+  action: AppSplitAction
+): AppSplitState {
+  if (action.type === 'OPEN_THE_HOUSE') {
+    return {
+      ...state,
+      activeApp: 'THE_HOUSE',
+      isWorldBuilderMode: false,
+    };
+  }
+
+  if (action.type === 'OPEN_CREATION_TOOLS') {
+    const nextTool = action.tool || state.activeCreationTool || 'HOUSE_BUILDER';
+    return {
+      activeApp: 'CREATION_TOOLS',
+      activeCreationTool: nextTool,
+      isWorldBuilderMode: nextTool === 'HOUSE_BUILDER',
+    };
+  }
+
+  if (action.type === 'SELECT_CREATION_TOOL') {
+    return {
+      activeApp: 'CREATION_TOOLS',
+      activeCreationTool: action.tool,
+      isWorldBuilderMode: action.tool === 'HOUSE_BUILDER',
+    };
+  }
+
+  return state;
+}
+
+export function syncCreatedAssetToGameWorld(params: {
+  assetType: 'SMART_OBJECT' | 'CHARACTER';
+  newSmartObject?: SmartObject;
+  newCharacter?: Character;
+  currentCharacters: Character[];
+  currentSmartObjects: SmartObject[];
+  placedParts?: Array<{
+    id: string;
+    partType: string;
+    label?: string;
+    roomType?: string;
+    gridPos: { x: number; y: number; z: number };
+    width: number;
+    depth: number;
+    height?: number;
+    rotationY?: number;
+  }>;
+  includeDefaultArchitecture?: boolean;
+  timeStr?: string;
+}): {
+  updatedCharacters: Character[];
+  updatedSmartObjects: SmartObject[];
+  syncLogMessage: string;
+  enforcedRoom?: RoomName;
+} {
+  const {
+    assetType,
+    newSmartObject,
+    newCharacter,
+    currentCharacters,
+    currentSmartObjects,
+    placedParts = [],
+    includeDefaultArchitecture = true,
+    timeStr = '12:00 PM',
+  } = params;
+
+  if (assetType === 'SMART_OBJECT' && newSmartObject) {
+    const safePlacement = resolveNonToonObjectPlacement(
+      newSmartObject.gridPos,
+      {
+        id: newSmartObject.id,
+        name: newSmartObject.name,
+        category: newSmartObject.category,
+        room: newSmartObject.room,
+      },
+      currentSmartObjects,
+      placedParts,
+      includeDefaultArchitecture
+    );
+    const syncedObject: SmartObject = {
+      ...newSmartObject,
+      room: safePlacement.enforcedRoom,
+      gridPos: safePlacement.safePos,
+    };
+    return {
+      updatedCharacters: currentCharacters,
+      updatedSmartObjects: [...currentSmartObjects, syncedObject],
+      enforcedRoom: safePlacement.enforcedRoom,
+      syncLogMessage: safePlacement.roomRuleMessage
+        ? `[${timeStr} | Creation Tools -> The House] ${safePlacement.roomRuleMessage}`
+        : `[${timeStr} | Creation Tools -> The House] Synced user-created asset '${syncedObject.name}' into ${safePlacement.enforcedRoom}.`,
+    };
+  }
+
+  if (assetType === 'CHARACTER' && newCharacter) {
+    const combined = [...currentCharacters, newCharacter];
+    const ensured = ensurePersonalBedsForAllToons(combined, currentSmartObjects);
+    return {
+      updatedCharacters: ensured.updatedCharacters,
+      updatedSmartObjects: ensured.updatedObjects,
+      syncLogMessage: `[${timeStr} | Creation Tools -> The House] Synced user-created character '${newCharacter.name}' into The House household with a personal bed.`,
+    };
+  }
+
+  return {
+    updatedCharacters: currentCharacters,
+    updatedSmartObjects: currentSmartObjects,
+    syncLogMessage: `[${timeStr} | Creation Tools -> The House] No asset changes applied.`,
+  };
+}
+

@@ -18,13 +18,10 @@ import {
   Pencil,
   Mic,
   Radio,
-  Hammer,
   Cpu,
   Brain,
-  Sparkles,
-  UserPlus,
-  BookOpen,
   Save,
+  Wrench,
 } from 'lucide-react';
 import { WallCutawayMode } from '../game/sceneBuilder';
 import { Character } from '../game/simulation';
@@ -51,12 +48,8 @@ interface BottomDockProps {
   onOpenEntityVoiceChat: () => void;
   onOpenOmniscientHouse?: () => void;
   onOpenSystems?: () => void;
-  onOpenAssetStudio?: () => void;
-  onOpenCAS?: () => void;
-  onOpenScenarios?: () => void;
-  onOpenWorldBuilder?: () => void;
-  onOpenRoomArchitectStudio?: () => void;
   onOpenWorldSaves?: () => void;
+  onOpenCreationTools?: () => void;
   showGrid: boolean;
   onToggleGrid: () => void;
   showPencilOutline: boolean;
@@ -89,12 +82,8 @@ export const BottomDock: React.FC<BottomDockProps> = ({
   onOpenEntityVoiceChat,
   onOpenOmniscientHouse,
   onOpenSystems,
-  onOpenAssetStudio,
-  onOpenCAS,
-  onOpenScenarios,
-  onOpenWorldBuilder,
-  onOpenRoomArchitectStudio,
   onOpenWorldSaves,
+  onOpenCreationTools,
   showGrid,
   onToggleGrid,
   showPencilOutline,
@@ -141,7 +130,7 @@ export const BottomDock: React.FC<BottomDockProps> = ({
           }`}
           style={{ maxWidth: 'min(1380px, 98vw)' }}
         >
-          {/* 1. Cash Amount + Toon Name Buttons + Core Systems & Modals Bar */}
+          {/* 1. Cash Amount + Toon Name Buttons + Autonomous Game Systems Bar */}
           <div
             data-testid="controls-household-and-entity-bar"
             className="flex flex-wrap items-center gap-1.5 pr-3 border-r border-gray-300 dark:border-gray-800"
@@ -184,12 +173,12 @@ export const BottomDock: React.FC<BottomDockProps> = ({
               })}
             </div>
 
-            {/* Systems (1-10 Mechanics Console) */}
+            {/* Systems (1-10 Autonomous AI Mechanics Console) */}
             {onOpenSystems && (
               <button
                 onClick={onOpenSystems}
                 data-testid="controls-open-systems-btn"
-                title="Open House Systems & 1–10 Mechanics Console"
+                title="Open Autonomous AI Simulation Systems & 1–10 Mechanics Console"
                 className="px-2.5 py-1.5 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-extrabold flex items-center gap-1.5 border border-cyan-400/80 shadow-sm transition-all cursor-pointer"
               >
                 <Cpu className="w-3.5 h-3.5" />
@@ -201,7 +190,7 @@ export const BottomDock: React.FC<BottomDockProps> = ({
             <button
               onClick={onOpenOmniscientHouse || onOpenEntityVoiceChat}
               data-testid="controls-open-omniscient-house-btn"
-              title="Open The House - Omniscient (Entity Chat, 3D Asset Forge, Cross-World Memory & Logs)"
+              title="Open The House - Omniscient (Entity Conversation, Persuasion, Cross-World Memory & Logs)"
               className="px-2.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-extrabold flex items-center gap-1.5 border border-purple-400/80 shadow-sm transition-all cursor-pointer"
             >
               <Brain className="w-3.5 h-3.5" />
@@ -219,71 +208,6 @@ export const BottomDock: React.FC<BottomDockProps> = ({
               <span>Voice [V]</span>
             </button>
 
-            {/* Asset Studio */}
-            {onOpenAssetStudio && (
-              <button
-                onClick={onOpenAssetStudio}
-                data-testid="controls-open-asset-studio-btn"
-                title="Open Asset Studio (Furnishings Catalog, Wallpapers, Flooring & AgentArtClass Synthesis)"
-                className="px-2.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-600 text-white text-xs font-extrabold flex items-center gap-1.5 border border-teal-400/80 shadow-sm transition-all cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Asset Studio</span>
-              </button>
-            )}
-
-            {/* CAS (Create-A-Sim / Character Creator) */}
-            {onOpenCAS && (
-              <button
-                onClick={onOpenCAS}
-                data-testid="controls-open-cas-btn"
-                title="Open CAS (Create-A-Sim Character Creator & Skeletal Proportions)"
-                className="px-2.5 py-1.5 rounded-xl bg-pink-700 hover:bg-pink-600 text-white text-xs font-extrabold flex items-center gap-1.5 border border-pink-400/80 shadow-sm transition-all cursor-pointer"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>CAS</span>
-              </button>
-            )}
-
-            {/* New Games & Scenarios */}
-            {onOpenScenarios && (
-              <button
-                onClick={onOpenScenarios}
-                data-testid="controls-open-scenarios-btn"
-                title="Open New Games & Scenarios (Preset Narratives, Random Start & Maturity Mode)"
-                className="px-2.5 py-1.5 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-extrabold flex items-center gap-1.5 border border-indigo-400/80 shadow-sm transition-all cursor-pointer"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>New Games &amp; Scenarios</span>
-              </button>
-            )}
-
-            {/* Hybrid House Builder & 3D Asset Forge Button */}
-            {onOpenWorldBuilder && (
-              <button
-                onClick={onOpenWorldBuilder}
-                data-testid="controls-open-house-builder-btn"
-                title="Open Hybrid House Builder & Entity 3D Asset Forge (Paralives + Sims 4 + Tiny Glade)"
-                className="px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold flex items-center gap-1.5 border border-amber-400/80 shadow-sm transition-all cursor-pointer"
-              >
-                <Hammer className="w-3.5 h-3.5" />
-                <span>Build House</span>
-              </button>
-            )}
-
-            {/* Pre-Made Rooms & Blank Grid Pathing Studio Button */}
-            {onOpenRoomArchitectStudio && (
-              <button
-                onClick={onOpenRoomArchitectStudio}
-                data-testid="controls-open-room-architect-btn"
-                title="Open Blank Grid Room Designer & Pre-Made Rooms Pathing Database"
-                className="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-extrabold flex items-center gap-1.5 border border-emerald-400/80 shadow-sm transition-all cursor-pointer"
-              >
-                <Grid className="w-3.5 h-3.5" />
-                <span>Room Studio &amp; Pathing DB</span>
-              </button>
-            )}
-
             {/* Save / Load Worlds Manager Button */}
             {onOpenWorldSaves && (
               <button
@@ -294,6 +218,19 @@ export const BottomDock: React.FC<BottomDockProps> = ({
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>Save / Load Worlds</span>
+              </button>
+            )}
+
+            {/* Switch to Creation Tools App Button */}
+            {onOpenCreationTools && (
+              <button
+                onClick={onOpenCreationTools}
+                data-testid="controls-open-creation-tools-btn"
+                title="Switch to the 'Creation Tools' App (Build House, Asset Studio, Character Creator CAS, Room Studio & Scenario Creator)"
+                className="px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold flex items-center gap-1.5 border border-amber-400/80 shadow-sm transition-all cursor-pointer"
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Creation Tools</span>
               </button>
             )}
           </div>

@@ -16,6 +16,7 @@ import { MobileSimulatorView } from './components/MobileSimulatorView';
 import { SimsWorldBuilderHUD } from './components/SimsWorldBuilderHUD';
 import { RoomArchitectStudioModal } from './components/RoomArchitectStudioModal';
 import { CloudSavesModal } from './components/CloudSavesModal';
+import { CreationToolsSuite } from './components/CreationToolsSuite';
 import {
   PremadeRoomTemplate,
   stampPremadeRoomIntoWorld,
@@ -85,6 +86,11 @@ import {
   evaluateHouseholdLegacyMilestones,
   ensurePersonalBedsForAllToons,
   evaluateEscapeKeyAction,
+  ApplicationId,
+  CreationToolSystemId,
+  AppSplitState,
+  createInitialAppSplitState,
+  resolveAppSplitTransition,
 } from './game/simulation';
 import { WallCutawayMode, WeatherCondition } from './game/sceneBuilder';
 import { resolveReachableApproachPoint } from './game/pathfinding';
@@ -134,6 +140,8 @@ import {
   Brain,
   Zap,
   Skull,
+  Home,
+  Wrench,
 } from 'lucide-react';
 
 interface LiveWeatherState {
@@ -346,8 +354,23 @@ export default function App() {
   );
   const lastEscapePressMsRef = useRef<number>(0);
 
+  // Dual-App Architecture State: "THE_HOUSE" (Autonomous AI Game) vs. "CREATION_TOOLS" (User Asset Creation Suite)
+  const [appSplitState, setAppSplitState] = useState<AppSplitState>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('app') === 'creation-tools') {
+        return createInitialAppSplitState('CREATION_TOOLS');
+      }
+    }
+    return createInitialAppSplitState('THE_HOUSE');
+  });
+  const activeApp = appSplitState.activeApp;
+  const activeCreationTool = appSplitState.activeCreationTool;
+
   // Sims-Style World Builder State (Empty Grid + Building Parts + AI Scenario Prompt)
-  const [isWorldBuilderMode, setIsWorldBuilderMode] = useState<boolean>(false);
+  const [isWorldBuilderMode, setIsWorldBuilderMode] = useState<boolean>(
+    () => appSplitState.isWorldBuilderMode
+  );
   const [worldBlueprint, setWorldBlueprint] = useState<WorldBlueprint>(() => ({
     isEmptyGridMode: false,
     lotTitle: 'Starter Bungalow Lot',
@@ -1879,8 +1902,45 @@ export default function App() {
     setSmartObjects(stamped.updatedSmartObjects);
     setShowGrid(true);
     setShowRoomArchitectModal(false);
+    setAppSplitState((prev) =>
+      resolveAppSplitTransition(prev, { type: 'SELECT_CREATION_TOOL', tool: 'HOUSE_BUILDER' })
+    );
     setIsWorldBuilderMode(true);
     sound.playChime(true);
+  };
+
+  const handleSwitchToTheHouse = () => {
+    setAppSplitState((prev) => resolveAppSplitTransition(prev, { type: 'OPEN_THE_HOUSE' }));
+    setIsWorldBuilderMode(false);
+    setShowAssetStudioModal(false);
+    setShowCASModal(false);
+    setShowRoomArchitectModal(false);
+    setShowScenarioModal(false);
+    sound.playChime(true);
+  };
+
+  const handleOpenCreationTools = (tool: CreationToolSystemId = 'HOUSE_BUILDER') => {
+    setAppSplitState((prev) =>
+      resolveAppSplitTransition(prev, { type: 'OPEN_CREATION_TOOLS', tool })
+    );
+    setSelectedCharId(null);
+    setFirstPersonCharId(null);
+    setShowSystemsModal(false);
+    setShowChatbotModal(false);
+    setIsWorldBuilderMode(tool === 'HOUSE_BUILDER');
+    setShowAssetStudioModal(tool === 'ASSET_STUDIO');
+    setShowCASModal(tool === 'CAS_STUDIO');
+    setShowRoomArchitectModal(tool === 'ROOM_STUDIO');
+    setShowScenarioModal(tool === 'WORLD_SCENARIO_CREATOR');
+    sound.playChime(true);
+  };
+
+  const handleSelectCreationTool = (tool: CreationToolSystemId) => {
+    setAppSplitState((prev) =>
+      resolveAppSplitTransition(prev, { type: 'SELECT_CREATION_TOOL', tool })
+    );
+    setIsWorldBuilderMode(tool === 'HOUSE_BUILDER');
+    sound.playClick(640);
   };
 
   const handleHaveBaby = (charAId: string, charBId: string) => {
@@ -2949,6 +3009,7 @@ export default function App() {
   return (
     <div
       data-testid="the-house-app-root"
+      data-active-app={activeApp}
       data-display-mode={appDisplayMode}
       data-ui-visible={modeCapabilities.showUI ? 'true' : 'false'}
       data-sound-enabled={modeCapabilities.enableSoundAndVoices ? 'true' : 'false'}
@@ -2959,6 +3020,50 @@ export default function App() {
       }}
       className="relative w-screen h-screen overflow-hidden bg-gray-950 font-sans select-none"
     >
+      {/* 0. Top-Level Dual-Application Switcher: "The House" (Game) vs. "Creation Tools" (Asset Creation Suite) */}
+      {modeCapabilities.showUI && !firstPersonCharacter && (
+        <div
+          data-testid="dual-app-switcher"
+          className="fixed top-3 left-3 z-40 pointer-events-auto flex items-center gap-1.5 p-1 rounded-2xl bg-gray-950/95 border border-gray-700/90 shadow-2xl"
+        >
+          <button
+            type="button"
+            data-testid="app-switcher-the-house-btn"
+            onClick={handleSwitchToTheHouse}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
+              activeApp === 'THE_HOUSE'
+                ? 'bg-indigo-600 text-white border border-indigo-400 shadow-sm'
+                : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent'
+            }`}
+            title="Switch to 'The House' (100% Autonomous AI Life Simulation Game)"
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span>The House</span>
+            <span className="text-[9px] font-mono uppercase opacity-80 px-1.5 py-0.5 rounded bg-black/30">
+              AI Game
+            </span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="app-switcher-creation-tools-btn"
+            onClick={() => handleOpenCreationTools(activeCreationTool)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
+              activeApp === 'CREATION_TOOLS'
+                ? 'bg-amber-600 text-white border border-amber-400 shadow-sm'
+                : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent'
+            }`}
+            title="Switch to 'Creation Tools' (User-Operated 3D Asset, Character, Room, House & Scenario Creation App)"
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            <span>Creation Tools</span>
+            <span className="text-[9px] font-mono uppercase opacity-80 px-1.5 py-0.5 rounded bg-black/30">
+              Asset Suite
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* 1. Main 3D Viewport: Floating Diorama Lot Grid */}
       <Viewport3D
         characters={characters}
@@ -2981,7 +3086,9 @@ export default function App() {
         openConceptKitchen={openConceptKitchen}
         openConceptLiving={openConceptLiving}
         worldBlueprint={worldBlueprint}
-        isWorldBuilderMode={isWorldBuilderMode && modeCapabilities.showUI}
+        isWorldBuilderMode={
+          activeApp === 'CREATION_TOOLS' && isWorldBuilderMode && modeCapabilities.showUI
+        }
         selectedBuildPart={selectedBuildPart}
         buildToolMode={buildToolMode}
         buildPartRotationY={buildPartRotationY}
@@ -3003,273 +3110,402 @@ export default function App() {
         </button>
       )}
 
-      {/* 2.2 First-Person Viewpoint ("Along for the Ride") HUD Banner */}
-      {modeCapabilities.showUI && firstPersonCharacter && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto px-5 py-2.5 rounded-2xl bg-amber-950/95 text-amber-100 border border-amber-500/80 shadow-2xl flex items-center gap-3">
-          <Eye className="w-4 h-4 text-amber-400 shrink-0" />
-          <div>
-            <div className="text-xs font-extrabold text-amber-300">
-              First-Person Ride-Along: {firstPersonCharacter.name}
-            </div>
-            <div className="text-[10px] text-amber-200/80">
-              "{firstPersonCharacter.selfTalk}" — Camera locked to {firstPersonCharacter.name.split(' ')[0]}'s eyes (You are along for the ride)
-            </div>
-          </div>
-          <button
-            onClick={() => setFirstPersonCharId(null)}
-            className="ml-2 px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition cursor-pointer"
-          >
-            Exit POV (ESC)
-          </button>
-        </div>
-      )}
-
-      {/* 2.4 Non-Blocking Autonomous House Event Toast (Auto-Performed without prompting user to choose!) */}
-      {modeCapabilities.showUI && activeHouseEvent && !firstPersonCharacter && (
-        <div
-          data-testid="house-interactive-event-banner"
-          className={`absolute top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto w-[92vw] max-w-xl p-4 rounded-2xl border shadow-2xl ${
-            isDarkMode
-              ? 'bg-gray-950/95 text-purple-100 border-rose-600/80'
-              : 'bg-gray-900/95 text-white border-indigo-500/80'
-          }`}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center flex-wrap gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                  Autonomous House Event Performed · Tier {activeHouseEvent.omniscienceTier}
-                </span>
-                {activeHouseEvent.autoSelectedChoice?.personalityImprint && (
-                  <span
-                    data-testid="house-event-imprinted-trait"
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      activeHouseEvent.autoSelectedChoice.personalityImprint.polarity === 'GOOD'
-                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-600'
-                        : 'bg-rose-950 text-rose-300 border border-rose-600'
-                    }`}
-                  >
-                    {activeHouseEvent.autoSelectedChoice.personalityImprint.polarity === 'GOOD'
-                      ? '✦ Good Trait Imprinted: '
-                      : '⚠ Bad Trait Imprinted: '}
-                    {activeHouseEvent.autoSelectedChoice.personalityImprint.traitName}
-                  </span>
-                )}
-              </div>
-              <h3 className="text-sm font-bold text-amber-300 mt-1">{activeHouseEvent.title}</h3>
-              {activeHouseEvent.autoSelectedChoice?.assignedTask && (
-                <div
-                  data-testid="house-event-assigned-task"
-                  className="text-xs font-semibold text-indigo-300 mt-0.5"
-                >
-                  Assigned Task ({activeHouseEvent.targetCharName || 'Resident'}):{' '}
-                  {activeHouseEvent.autoSelectedChoice.assignedTask.actionLabel}
+      {/* ===================================================================== */}
+      {/* APP 1: "THE HOUSE" (AUTONOMOUS AI LIFE SIMULATION GAME)               */}
+      {/* ===================================================================== */}
+      {activeApp === 'THE_HOUSE' && (
+        <>
+          {/* 2.2 First-Person Viewpoint ("Along for the Ride") HUD Banner */}
+          {modeCapabilities.showUI && firstPersonCharacter && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto px-5 py-2.5 rounded-2xl bg-amber-950/95 text-amber-100 border border-amber-500/80 shadow-2xl flex items-center gap-3">
+              <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+              <div>
+                <div className="text-xs font-extrabold text-amber-300">
+                  First-Person Ride-Along: {firstPersonCharacter.name}
                 </div>
-              )}
-              <p className="text-xs text-gray-300 italic mt-1">
-                "{activeHouseEvent.autoSelectedChoice?.outcomeNarrative || activeHouseEvent.houseMonologue}"
-              </p>
-            </div>
-            <button
-              onClick={() => setActiveHouseEvent(null)}
-              className="text-gray-400 hover:text-white text-xs px-2 py-1 rounded-lg bg-gray-800 transition cursor-pointer shrink-0"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 2.5 Spontaneous Random Domestic Event Banner */}
-      {modeCapabilities.showUI && activeEvent && !activeHouseEvent && !firstPersonCharacter && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-lg px-4 py-2.5 rounded-2xl bg-indigo-950/95 text-indigo-100 border border-indigo-500/80 shadow-2xl flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div>
-              <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                <span>{activeEvent.title}</span>
-                <span className="text-[9px] text-indigo-300 uppercase tracking-wider font-mono">
-                  · {activeEvent.type}
-                </span>
+                <div className="text-[10px] text-amber-200/80">
+                  &quot;{firstPersonCharacter.selfTalk}&quot; — Camera locked to{' '}
+                  {firstPersonCharacter.name.split(' ')[0]}&apos;s eyes (You are along for the ride)
+                </div>
               </div>
-              <p className="text-[11px] text-gray-300 leading-snug mt-0.5">{activeEvent.description}</p>
+              <button
+                onClick={() => setFirstPersonCharId(null)}
+                className="ml-2 px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition cursor-pointer"
+              >
+                Exit POV (ESC)
+              </button>
             </div>
-          </div>
-          <button
-            onClick={() => setActiveEvent(null)}
-            className="text-gray-400 hover:text-white text-xs px-2 py-1 rounded-lg bg-indigo-900/60 transition cursor-pointer shrink-0"
-          >
-            ✕
-          </button>
-        </div>
+          )}
+
+          {/* 2.4 Non-Blocking Autonomous House Event Toast (Auto-Performed without prompting user to choose!) */}
+          {modeCapabilities.showUI && activeHouseEvent && !firstPersonCharacter && (
+            <div
+              data-testid="house-interactive-event-banner"
+              className={`absolute top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto w-[92vw] max-w-xl p-4 rounded-2xl border shadow-2xl ${
+                isDarkMode
+                  ? 'bg-gray-950/95 text-purple-100 border-rose-600/80'
+                  : 'bg-gray-900/95 text-white border-indigo-500/80'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center flex-wrap gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                      Autonomous House Event Performed · Tier {activeHouseEvent.omniscienceTier}
+                    </span>
+                    {activeHouseEvent.autoSelectedChoice?.personalityImprint && (
+                      <span
+                        data-testid="house-event-imprinted-trait"
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          activeHouseEvent.autoSelectedChoice.personalityImprint.polarity === 'GOOD'
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-600'
+                            : 'bg-rose-950 text-rose-300 border border-rose-600'
+                        }`}
+                      >
+                        {activeHouseEvent.autoSelectedChoice.personalityImprint.polarity === 'GOOD'
+                          ? '✦ Good Trait Imprinted: '
+                          : '⚠ Bad Trait Imprinted: '}
+                        {activeHouseEvent.autoSelectedChoice.personalityImprint.traitName}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-sm font-bold text-amber-300 mt-1">
+                    {activeHouseEvent.title}
+                  </h3>
+                  {activeHouseEvent.autoSelectedChoice?.assignedTask && (
+                    <div
+                      data-testid="house-event-assigned-task"
+                      className="text-xs font-semibold text-indigo-300 mt-0.5"
+                    >
+                      Assigned Task ({activeHouseEvent.targetCharName || 'Resident'}):{' '}
+                      {activeHouseEvent.autoSelectedChoice.assignedTask.actionLabel}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-300 italic mt-1">
+                    &quot;
+                    {activeHouseEvent.autoSelectedChoice?.outcomeNarrative ||
+                      activeHouseEvent.houseMonologue}
+                    &quot;
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveHouseEvent(null)}
+                  className="text-gray-400 hover:text-white text-xs px-2 py-1 rounded-lg bg-gray-800 transition cursor-pointer shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 2.5 Spontaneous Random Domestic Event Banner */}
+          {modeCapabilities.showUI &&
+            activeEvent &&
+            !activeHouseEvent &&
+            !firstPersonCharacter && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-lg px-4 py-2.5 rounded-2xl bg-indigo-950/95 text-indigo-100 border border-indigo-500/80 shadow-2xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div>
+                    <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                      <span>{activeEvent.title}</span>
+                      <span className="text-[9px] text-indigo-300 uppercase tracking-wider font-mono">
+                        · {activeEvent.type}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-300 leading-snug mt-0.5">
+                      {activeEvent.description}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveEvent(null)}
+                  className="text-gray-400 hover:text-white text-xs px-2 py-1 rounded-lg bg-indigo-900/60 transition cursor-pointer shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+          {/* 3. Character Inspector Panel */}
+          {modeCapabilities.showUI && selectedCharacter && (
+            <CharacterInspector
+              character={selectedCharacter}
+              allCharacters={characters}
+              householdMilestones={householdMilestones}
+              onClose={() => setSelectedCharId(null)}
+              smartObjects={smartObjects}
+              onCommandAction={handleCommandAction}
+              onFulfillBasicNeed={handleFulfillBasicNeed}
+              onQueueAction={handleQueueAction}
+              onRemoveQueuedAction={handleRemoveQueuedAction}
+              onPromoteQueuedAction={handlePromoteQueuedAction}
+              onSkipToNextQueuedAction={handleSkipToNextQueuedAction}
+              onToonBuildStory={handleToonBuildStory}
+              hasUpstairs={hasUpstairs}
+              hasBasement={hasBasement}
+              funds={funds}
+              onSendOffGrid={handleSendOffGrid}
+              onToggleFirstPerson={handleToggleFirstPerson}
+              isFirstPersonActive={firstPersonCharId === selectedCharacter.id}
+              onReadNewspaper={handleReadNewspaperCommand}
+              onPursueDailyAspiration={handlePursueDailyAspiration}
+              onRerollDailyAspirations={handleRerollDailyAspirations}
+              onBoostRelationship={handleBoostRelationship}
+              onHaveBaby={handleHaveBaby}
+              onSelectCharacter={handleSelectCharacter}
+              onTriggerSocialInteraction={handleTriggerSocialInteraction}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {/* 4. Collapsible Bottom Control Dock for "The House" Game */}
+          {modeCapabilities.showUI && (
+            <BottomDock
+              timeStr={formattedTime.timeStr}
+              day={formattedTime.day}
+              timeScale={timeScale}
+              onSetTimeScale={setTimeScale}
+              cutawayMode={cutawayMode}
+              onSetCutawayMode={setCutawayMode}
+              activeFloor={activeFloor}
+              onSelectFloor={setActiveFloor}
+              funds={funds}
+              characters={characters}
+              selectedCharId={selectedCharId}
+              onSelectCharacter={handleSelectCharacter}
+              showGrid={showGrid}
+              onToggleGrid={() => setShowGrid(!showGrid)}
+              showPencilOutline={showPencilOutline}
+              onTogglePencilOutline={() => setShowPencilOutline(!showPencilOutline)}
+              isMuted={isMuted}
+              onToggleMute={() => {
+                const next = !isMuted;
+                setIsMuted(next);
+                sound.setMuted(next);
+              }}
+              alwaysSpeakOutLoud={alwaysSpeakOutLoud}
+              onToggleAlwaysSpeakOutLoud={handleToggleAlwaysSpeakOutLoud}
+              isScreensaverMode={isScreensaverMode}
+              onToggleScreensaver={() => {
+                screensaverActivatedAtRef.current = Date.now();
+                setAppDisplayMode((prev) =>
+                  resolveDisplayModeTransition(prev, 'ACTIVATE_SCREENSAVER')
+                );
+              }}
+              onActivateDesktopBackground={() => {
+                setAppDisplayMode((prev) =>
+                  resolveDisplayModeTransition(prev, 'ACTIVATE_DESKTOP_BACKGROUND')
+                );
+              }}
+              isMobileSimMode={isMobileSimMode}
+              onToggleMobileSim={() => setIsMobileSimMode(!isMobileSimMode)}
+              onOpenEntityVoiceChat={() => {
+                sound.playChime(true);
+                setAutoStartVoiceChat(true);
+                setShowChatbotModal(true);
+              }}
+              onOpenOmniscientHouse={() => {
+                sound.playChime(true);
+                setAutoStartVoiceChat(false);
+                setShowChatbotModal(true);
+              }}
+              onOpenSystems={() => {
+                sound.playClick(620);
+                setShowSystemsModal(true);
+              }}
+              onOpenWorldSaves={() => {
+                sound.playChime(true);
+                setShowWorldSavesModal(true);
+              }}
+              onOpenCreationTools={() => handleOpenCreationTools('HOUSE_BUILDER')}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {/* 5. "The House" AI Game Modals */}
+          {modeCapabilities.showUI && showSystemsModal && (
+            <SystemsMechanicsModal
+              onClose={() => setShowSystemsModal(false)}
+              characters={characters}
+              smartObjects={smartObjects}
+              onUpdateCharacterMotives={handleUpdateCharacterMotives}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {modeCapabilities.showUI && showChatbotModal && (
+            <HouseChatbotModal
+              onClose={() => {
+                setShowChatbotModal(false);
+                setAutoStartVoiceChat(false);
+              }}
+              characters={characters}
+              smartObjects={smartObjects}
+              wallLogs={wallLogs}
+              isDarkMode={isDarkMode}
+              onPersuadeEntity={handlePersuadeEntity}
+              onSwitchToCreationTools={() => {
+                setShowChatbotModal(false);
+                handleOpenCreationTools('ASSET_STUDIO');
+              }}
+              houseMemory={houseMemory}
+              autoStartVoiceChat={autoStartVoiceChat}
+              onRecordVoiceExchange={(userUtterance, houseReply) => {
+                const timeStr = formatGameTime(gameSeconds).timeStr;
+                setWallLogs((prev) => [
+                  ...prev,
+                  `[${timeStr} | Entity Voice Chat] You: "${userUtterance}" -> Entity: "${houseReply}"`,
+                ]);
+              }}
+            />
+          )}
+
+          {modeCapabilities.showUI && isMobileSimMode && (
+            <MobileSimulatorView
+              onClose={() => setIsMobileSimMode(false)}
+              characters={characters}
+              smartObjects={smartObjects}
+              timeStr={formattedTime.timeStr}
+              day={formattedTime.day}
+              onSelectCharacter={handleSelectCharacter}
+              onOpenChatbot={() => {
+                setAutoStartVoiceChat(false);
+                setShowChatbotModal(true);
+              }}
+              isDarkMode={isDarkMode}
+            />
+          )}
+        </>
       )}
 
-      {/* 3. Character Inspector Panel */}
-      {modeCapabilities.showUI && selectedCharacter && (
-        <CharacterInspector
-          character={selectedCharacter}
-          allCharacters={characters}
-          householdMilestones={householdMilestones}
-          onClose={() => setSelectedCharId(null)}
-          smartObjects={smartObjects}
-          onCommandAction={handleCommandAction}
-          onFulfillBasicNeed={handleFulfillBasicNeed}
-          onQueueAction={handleQueueAction}
-          onRemoveQueuedAction={handleRemoveQueuedAction}
-          onPromoteQueuedAction={handlePromoteQueuedAction}
-          onSkipToNextQueuedAction={handleSkipToNextQueuedAction}
-          onToonBuildStory={handleToonBuildStory}
-          hasUpstairs={hasUpstairs}
-          hasBasement={hasBasement}
-          funds={funds}
-          onSendOffGrid={handleSendOffGrid}
-          onToggleFirstPerson={handleToggleFirstPerson}
-          isFirstPersonActive={firstPersonCharId === selectedCharacter.id}
-          onReadNewspaper={handleReadNewspaperCommand}
-          onPursueDailyAspiration={handlePursueDailyAspiration}
-          onRerollDailyAspirations={handleRerollDailyAspirations}
-          onBoostRelationship={handleBoostRelationship}
-          onHaveBaby={handleHaveBaby}
-          onSelectCharacter={handleSelectCharacter}
-          onTriggerSocialInteraction={handleTriggerSocialInteraction}
-          isDarkMode={isDarkMode}
-        />
+      {/* ===================================================================== */}
+      {/* APP 2: "CREATION TOOLS" (USER ASSET & WORLD CREATION SUITE)           */}
+      {/* ===================================================================== */}
+      {activeApp === 'CREATION_TOOLS' && modeCapabilities.showUI && (
+        <>
+          <CreationToolsSuite
+            activeTool={activeCreationTool}
+            onSelectTool={handleSelectCreationTool}
+            onReturnToTheHouse={handleSwitchToTheHouse}
+            characters={characters}
+            smartObjects={smartObjects}
+            customPremadeRooms={customPremadeRooms}
+            worldBlueprint={worldBlueprint}
+            funds={funds}
+            onOpenAssetStudioModal={() => setShowAssetStudioModal(true)}
+            onOpenCASModal={() => setShowCASModal(true)}
+            onOpenRoomStudioModal={() => setShowRoomArchitectModal(true)}
+            onOpenScenarioModal={() => setShowScenarioModal(true)}
+            onOpenWorldSavesModal={() => setShowWorldSavesModal(true)}
+            onGenerateEntity3DAsset={handleGenerateEntity3DAsset}
+            isDarkMode={isDarkMode}
+          />
+
+          {/* Interactive 3D Lot & House Builder HUD (Active when HOUSE_BUILDER tool is selected) */}
+          {isWorldBuilderMode && (
+            <SimsWorldBuilderHUD
+              blueprint={worldBlueprint}
+              selectedPart={selectedBuildPart}
+              onSelectPart={setSelectedBuildPart}
+              toolMode={buildToolMode}
+              onSetToolMode={setBuildToolMode}
+              partRotationY={buildPartRotationY}
+              onRotatePart={() => setBuildPartRotationY((r) => (r + Math.PI / 2) % (Math.PI * 2))}
+              onStartEmptyGrid={handleStartEmptyGrid}
+              onRestoreStarterHouse={handleRestoreStarterHouse}
+              onQuickPlacePart={handleQuickPlacePart}
+              onGenerateWorldFromPrompt={handleGenerateWorldFromPrompt}
+              onGenerateEntity3DAsset={handleGenerateEntity3DAsset}
+              isGeneratingWorld={isGeneratingWorld}
+              funds={funds}
+              cutawayMode={cutawayMode}
+              onSetCutawayMode={setCutawayMode}
+              targetRoomForPaint={targetRoomForPaint}
+              onSetTargetRoomForPaint={setTargetRoomForPaint}
+              onApplyWallpaper={(room, styleId, cost) => {
+                setRoomWallpapers((prev) => ({ ...prev, [room]: styleId }));
+                setFunds((f) => Math.max(0, f - cost));
+                sound.playChime(true);
+              }}
+              onApplyFloorPattern={(room, styleId, cost) => {
+                setRoomCarpets((prev) => ({ ...prev, [room]: styleId }));
+                setFunds((f) => Math.max(0, f - cost));
+                sound.playChime(true);
+              }}
+              onExitBuildMode={handleSwitchToTheHouse}
+              onOpenRoomArchitectStudio={() => {
+                handleSelectCreationTool('ROOM_STUDIO');
+                setShowRoomArchitectModal(true);
+              }}
+              onOpenWorldSaves={() => {
+                sound.playChime(true);
+                setShowWorldSavesModal(true);
+              }}
+            />
+          )}
+
+          {/* User Asset Creation Studio Modals */}
+          {showRoomArchitectModal && (
+            <RoomArchitectStudioModal
+              customRooms={customPremadeRooms}
+              onSaveCustomRoom={handleSaveCustomPremadeRoom}
+              onStampRoomIntoHouse={handleStampPremadeRoom}
+              onLaunch3DBlankGridRoomBuilder={handleLaunch3DBlankGridRoomBuilder}
+              onClose={() => setShowRoomArchitectModal(false)}
+            />
+          )}
+
+          {showCASModal && (
+            <CharacterCreatorModal
+              onClose={() => setShowCASModal(false)}
+              onSaveCharacter={handleSaveCustomCharacter}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {showAssetStudioModal && (
+            <AssetStudioModal
+              onClose={() => setShowAssetStudioModal(false)}
+              onAddSmartObject={handleAddSmartObject}
+              roomWallpapers={roomWallpapers}
+              onSelectWallpaper={(room, wpId) =>
+                setRoomWallpapers((prev) => ({ ...prev, [room]: wpId }))
+              }
+              roomCarpets={roomCarpets}
+              onSelectCarpet={(room, cpId) =>
+                setRoomCarpets((prev) => ({ ...prev, [room]: cpId }))
+              }
+              openConceptKitchen={openConceptKitchen}
+              openConceptLiving={openConceptLiving}
+              onToggleOpenConcept={(target) => {
+                if (target === 'kitchen') setOpenConceptKitchen((v) => !v);
+                else setOpenConceptLiving((v) => !v);
+              }}
+              onApplyLayoutPreset={handleApplyLayoutPreset}
+              funds={funds}
+              onSpendFunds={(amount) => setFunds((f) => Math.max(0, f - amount))}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {showScenarioModal && (
+            <ScenarioModal
+              onClose={() => setShowScenarioModal(false)}
+              onStartScenario={(scenario, chosenMaturity) => {
+                handleStartScenario(scenario, chosenMaturity);
+                handleSwitchToTheHouse();
+              }}
+              onStartRandomGame={(chosenMaturity) => {
+                handleStartRandomGame(chosenMaturity);
+                handleSwitchToTheHouse();
+              }}
+              currentMaturity={maturity}
+            />
+          )}
+        </>
       )}
 
-      {/* 3.8 Sims 4 / Paralives / Tiny Glade Hybrid House Builder HUD */}
-      {modeCapabilities.showUI && isWorldBuilderMode && (
-        <SimsWorldBuilderHUD
-          blueprint={worldBlueprint}
-          selectedPart={selectedBuildPart}
-          onSelectPart={setSelectedBuildPart}
-          toolMode={buildToolMode}
-          onSetToolMode={setBuildToolMode}
-          partRotationY={buildPartRotationY}
-          onRotatePart={() => setBuildPartRotationY((r) => (r + Math.PI / 2) % (Math.PI * 2))}
-          onStartEmptyGrid={handleStartEmptyGrid}
-          onRestoreStarterHouse={handleRestoreStarterHouse}
-          onQuickPlacePart={handleQuickPlacePart}
-          onGenerateWorldFromPrompt={handleGenerateWorldFromPrompt}
-          onGenerateEntity3DAsset={handleGenerateEntity3DAsset}
-          isGeneratingWorld={isGeneratingWorld}
-          funds={funds}
-          cutawayMode={cutawayMode}
-          onSetCutawayMode={setCutawayMode}
-          targetRoomForPaint={targetRoomForPaint}
-          onSetTargetRoomForPaint={setTargetRoomForPaint}
-          onApplyWallpaper={(room, styleId, cost) => {
-            setRoomWallpapers((prev) => ({ ...prev, [room]: styleId }));
-            setFunds((f) => Math.max(0, f - cost));
-            sound.playChime(true);
-          }}
-          onApplyFloorPattern={(room, styleId, cost) => {
-            setRoomCarpets((prev) => ({ ...prev, [room]: styleId }));
-            setFunds((f) => Math.max(0, f - cost));
-            sound.playChime(true);
-          }}
-          onExitBuildMode={() => setIsWorldBuilderMode(false)}
-          onOpenRoomArchitectStudio={() => setShowRoomArchitectModal(true)}
-          onOpenWorldSaves={() => {
-            sound.playChime(true);
-            setShowWorldSavesModal(true);
-          }}
-        />
-      )}
-
-      {/* 4. Collapsible Bottom Control Dock (Controls Window: Cash, Toon Names, Sims Floor Switcher, Build House [B], Voice [V]) */}
-      {modeCapabilities.showUI && !isWorldBuilderMode && (
-        <BottomDock
-          timeStr={formattedTime.timeStr}
-          day={formattedTime.day}
-          timeScale={timeScale}
-          onSetTimeScale={setTimeScale}
-          cutawayMode={cutawayMode}
-          onSetCutawayMode={setCutawayMode}
-          activeFloor={activeFloor}
-          onSelectFloor={setActiveFloor}
-          funds={funds}
-          characters={characters}
-          selectedCharId={selectedCharId}
-          onSelectCharacter={handleSelectCharacter}
-          showGrid={showGrid}
-          onToggleGrid={() => setShowGrid(!showGrid)}
-          showPencilOutline={showPencilOutline}
-          onTogglePencilOutline={() => setShowPencilOutline(!showPencilOutline)}
-          isMuted={isMuted}
-          onToggleMute={() => {
-            const next = !isMuted;
-            setIsMuted(next);
-            sound.setMuted(next);
-          }}
-          alwaysSpeakOutLoud={alwaysSpeakOutLoud}
-          onToggleAlwaysSpeakOutLoud={handleToggleAlwaysSpeakOutLoud}
-          isScreensaverMode={isScreensaverMode}
-          onToggleScreensaver={() => {
-            screensaverActivatedAtRef.current = Date.now();
-            setAppDisplayMode((prev) =>
-              resolveDisplayModeTransition(prev, 'ACTIVATE_SCREENSAVER')
-            );
-          }}
-          onActivateDesktopBackground={() => {
-            setAppDisplayMode((prev) =>
-              resolveDisplayModeTransition(prev, 'ACTIVATE_DESKTOP_BACKGROUND')
-            );
-          }}
-          isMobileSimMode={isMobileSimMode}
-          onToggleMobileSim={() => setIsMobileSimMode(!isMobileSimMode)}
-          onOpenEntityVoiceChat={() => {
-            sound.playChime(true);
-            setAutoStartVoiceChat(true);
-            setShowChatbotModal(true);
-          }}
-          onOpenOmniscientHouse={() => {
-            sound.playChime(true);
-            setAutoStartVoiceChat(false);
-            setShowChatbotModal(true);
-          }}
-          onOpenSystems={() => {
-            sound.playClick(620);
-            setShowSystemsModal(true);
-          }}
-          onOpenAssetStudio={() => {
-            sound.playClick(640);
-            setShowAssetStudioModal(true);
-          }}
-          onOpenCAS={() => {
-            sound.playClick(660);
-            setShowCASModal(true);
-          }}
-          onOpenScenarios={() => {
-            sound.playClick(680);
-            setShowScenarioModal(true);
-          }}
-          onOpenWorldBuilder={() => {
-            sound.playChime(true);
-            setIsWorldBuilderMode(true);
-          }}
-          onOpenRoomArchitectStudio={() => {
-            sound.playChime(true);
-            setShowRoomArchitectModal(true);
-          }}
-          onOpenWorldSaves={() => {
-            sound.playChime(true);
-            setShowWorldSavesModal(true);
-          }}
-          isDarkMode={isDarkMode}
-        />
-      )}
-
-      {/* 4.5 Blank Grid Room Architect & Pre-Made Rooms Pathing Studio Modal */}
-      {modeCapabilities.showUI && showRoomArchitectModal && (
-        <RoomArchitectStudioModal
-          customRooms={customPremadeRooms}
-          onSaveCustomRoom={handleSaveCustomPremadeRoom}
-          onStampRoomIntoHouse={handleStampPremadeRoom}
-          onLaunch3DBlankGridRoomBuilder={handleLaunch3DBlankGridRoomBuilder}
-          onClose={() => setShowRoomArchitectModal(false)}
-        />
-      )}
-
-      {/* 4.8 Save & Load Worlds Manager Modal */}
+      {/* Shared Save & Load Worlds Manager Modal (Accessible from both The House & Creation Tools) */}
       {modeCapabilities.showUI && showWorldSavesModal && (
         <CloudSavesModal
           onClose={() => setShowWorldSavesModal(false)}
@@ -3292,99 +3528,6 @@ export default function App() {
           onLoadSave={handleLoadWorldSave}
           autoSaveInterval={autoSaveInterval}
           onSetAutoSaveInterval={setAutoSaveInterval}
-          isDarkMode={isDarkMode}
-        />
-      )}
-
-      {/* 5. Modals (Only rendered in GAMEPLAY Mode) */}
-      {modeCapabilities.showUI && showSystemsModal && (
-        <SystemsMechanicsModal
-          onClose={() => setShowSystemsModal(false)}
-          characters={characters}
-          smartObjects={smartObjects}
-          onUpdateCharacterMotives={handleUpdateCharacterMotives}
-          isDarkMode={isDarkMode}
-        />
-      )}
-
-      {modeCapabilities.showUI && showCASModal && (
-        <CharacterCreatorModal
-          onClose={() => setShowCASModal(false)}
-          onSaveCharacter={handleSaveCustomCharacter}
-          isDarkMode={isDarkMode}
-        />
-      )}
-
-      {modeCapabilities.showUI && showChatbotModal && (
-        <HouseChatbotModal
-          onClose={() => {
-            setShowChatbotModal(false);
-            setAutoStartVoiceChat(false);
-          }}
-          characters={characters}
-          smartObjects={smartObjects}
-          wallLogs={wallLogs}
-          isDarkMode={isDarkMode}
-          onPersuadeEntity={handlePersuadeEntity}
-          onGenerateEntity3DAsset={handleGenerateEntity3DAsset}
-          houseMemory={houseMemory}
-          autoStartVoiceChat={autoStartVoiceChat}
-          onRecordVoiceExchange={(userUtterance, houseReply) => {
-            const timeStr = formatGameTime(gameSeconds).timeStr;
-            setWallLogs((prev) => [
-              ...prev,
-              `[${timeStr} | Entity Voice Chat] You: "${userUtterance}" -> Entity: "${houseReply}"`,
-            ]);
-          }}
-        />
-      )}
-
-      {modeCapabilities.showUI && showAssetStudioModal && (
-        <AssetStudioModal
-          onClose={() => setShowAssetStudioModal(false)}
-          onAddSmartObject={handleAddSmartObject}
-          roomWallpapers={roomWallpapers}
-          onSelectWallpaper={(room, wpId) =>
-            setRoomWallpapers((prev) => ({ ...prev, [room]: wpId }))
-          }
-          roomCarpets={roomCarpets}
-          onSelectCarpet={(room, cpId) =>
-            setRoomCarpets((prev) => ({ ...prev, [room]: cpId }))
-          }
-          openConceptKitchen={openConceptKitchen}
-          openConceptLiving={openConceptLiving}
-          onToggleOpenConcept={(target) => {
-            if (target === 'kitchen') setOpenConceptKitchen((v) => !v);
-            else setOpenConceptLiving((v) => !v);
-          }}
-          onApplyLayoutPreset={handleApplyLayoutPreset}
-          funds={funds}
-          onSpendFunds={(amount) => setFunds((f) => Math.max(0, f - amount))}
-          isDarkMode={isDarkMode}
-        />
-      )}
-
-      {modeCapabilities.showUI && showScenarioModal && (
-        <ScenarioModal
-          onClose={() => setShowScenarioModal(false)}
-          onStartScenario={handleStartScenario}
-          onStartRandomGame={handleStartRandomGame}
-          currentMaturity={maturity}
-        />
-      )}
-
-      {modeCapabilities.showUI && isMobileSimMode && (
-        <MobileSimulatorView
-          onClose={() => setIsMobileSimMode(false)}
-          characters={characters}
-          smartObjects={smartObjects}
-          timeStr={formattedTime.timeStr}
-          day={formattedTime.day}
-          onSelectCharacter={handleSelectCharacter}
-          onOpenChatbot={() => {
-            setAutoStartVoiceChat(false);
-            setShowChatbotModal(true);
-          }}
           isDarkMode={isDarkMode}
         />
       )}

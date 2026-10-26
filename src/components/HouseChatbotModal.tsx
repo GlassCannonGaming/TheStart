@@ -39,6 +39,7 @@ interface HouseChatbotModalProps {
     prompt: string,
     roomOverride?: string
   ) => { smartObject: SmartObject; placementSummary: string };
+  onSwitchToCreationTools?: () => void;
   onRecordVoiceExchange?: (userUtterance: string, entityReply: string) => void;
 }
 
@@ -66,6 +67,7 @@ export const HouseChatbotModal: React.FC<HouseChatbotModalProps> = ({
   autoStartVoiceChat = false,
   onPersuadeEntity,
   onGenerateEntity3DAsset,
+  onSwitchToCreationTools,
   onRecordVoiceExchange,
 }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'items' | 'memory' | 'logs'>('chat');
@@ -613,8 +615,21 @@ export const HouseChatbotModal: React.FC<HouseChatbotModalProps> = ({
                 </span>
               </div>
               <p className="text-gray-700 dark:text-gray-300 text-[11px] leading-relaxed">
-                Prompt the <strong>Entity</strong> to synthesize multi-part 3D assets and place them in any room, or persuade the Entity in the chat tab. Autonomous toons will naturally discover and interact with them!
+                In <strong>The House</strong>, the AI Entity autonomously manifests needed 3D assets or spawns items when persuaded in conversation. To manually design or forge custom assets yourself, open the dedicated <strong>Creation Tools</strong> app.
               </p>
+
+              {onSwitchToCreationTools && (
+                <div className="pt-1 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={onSwitchToCreationTools}
+                    data-testid="modal-switch-to-creation-tools-btn"
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold cursor-pointer transition"
+                  >
+                    Open Creation Tools (User Asset Creation Suite)
+                  </button>
+                </div>
+              )}
 
               {onGenerateEntity3DAsset && (
                 <form

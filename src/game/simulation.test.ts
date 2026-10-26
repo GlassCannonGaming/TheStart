@@ -3004,4 +3004,118 @@ test('A* Pathfinding across worldBlueprint grid prevents characters from getting
   );
 });
 
+test('Dual-App Split Architecture ("The House" Game vs "Creation Tools"): routes all user asset creation systems to Creation Tools while keeping all AI-controlled systems in The House', async () => {
+  const {
+    APPLICATION_SYSTEM_MANIFEST,
+    getSystemsForApp,
+    isUserCreationToolSystem,
+    isAiControlledGameSystem,
+    createInitialAppSplitState,
+    resolveAppSplitTransition,
+    syncCreatedAssetToGameWorld,
+    DEFAULT_SMART_OBJECTS,
+    PRESET_SCENARIOS,
+  } = await import('./simulation.ts');
+
+  // 1. All user-operated asset creation systems must belong to "CREATION_TOOLS"
+  const creationToolsSystems = getSystemsForApp('CREATION_TOOLS');
+  const creationToolIds = creationToolsSystems.map((s) => s.id).sort();
+  assert.deepEqual(
+    creationToolIds,
+    ['ASSET_STUDIO', 'CAS_STUDIO', 'HOUSE_BUILDER', 'ROOM_STUDIO', 'WORLD_SCENARIO_CREATOR'].sort()
+  );
+  for (const sys of creationToolsSystems) {
+    assert.equal(sys.isUserAssetCreationSystem, true);
+    assert.equal(sys.isAiControlledSystem, false);
+    assert.equal(isUserCreationToolSystem(sys.id), true);
+    assert.equal(isAiControlledGameSystem(sys.id), false);
+    assert.ok(sys.assetKindCreated, `Expected assetKindCreated for creation tool ${sys.id}`);
+  }
+
+  // 2. All AI-controlled autonomous systems must remain in "THE_HOUSE"
+  const theHouseSystems = getSystemsForApp('THE_HOUSE');
+  const houseSystemIds = theHouseSystems.map((s) => s.id);
+  assert.ok(houseSystemIds.includes('AUTONOMOUS_TOON_LIFE_ENGINE'));
+  assert.ok(houseSystemIds.includes('AUTONOMOUS_A_STAR_PATHING'));
+  assert.ok(houseSystemIds.includes('AUTONOMOUS_BUILDER_RENOVATION_AI'));
+  assert.ok(houseSystemIds.includes('AUTONOMOUS_ENTITY_ASSET_MANIFESTATION_AI'));
+  assert.ok(houseSystemIds.includes('AUTONOMOUS_HOUSE_EVENTS_AI'));
+  assert.ok(houseSystemIds.includes('AUTONOMOUS_KNOWLEDGE_INGESTION_AI'));
+  assert.ok(houseSystemIds.includes('ENTITY_CONVERSATION_AND_PERSUASION'));
+
+  for (const sys of theHouseSystems) {
+    assert.equal(sys.isUserAssetCreationSystem, false);
+    assert.equal(sys.isAiControlledSystem, true);
+    assert.equal(isAiControlledGameSystem(sys.id), true);
+    assert.equal(isUserCreationToolSystem(sys.id), false);
+  }
+
+  // 3. State machine transitions cleanly between "THE_HOUSE" and "CREATION_TOOLS"
+  let splitState = createInitialAppSplitState('THE_HOUSE');
+  assert.equal(splitState.activeApp, 'THE_HOUSE');
+  assert.equal(splitState.isWorldBuilderMode, false);
+
+  splitState = resolveAppSplitTransition(splitState, {
+    type: 'OPEN_CREATION_TOOLS',
+    tool: 'ASSET_STUDIO',
+  });
+  assert.equal(splitState.activeApp, 'CREATION_TOOLS');
+  assert.equal(splitState.activeCreationTool, 'ASSET_STUDIO');
+  assert.equal(splitState.isWorldBuilderMode, false);
+
+  splitState = resolveAppSplitTransition(splitState, {
+    type: 'SELECT_CREATION_TOOL',
+    tool: 'HOUSE_BUILDER',
+  });
+  assert.equal(splitState.activeApp, 'CREATION_TOOLS');
+  assert.equal(splitState.activeCreationTool, 'HOUSE_BUILDER');
+  assert.equal(splitState.isWorldBuilderMode, true);
+
+  splitState = resolveAppSplitTransition(splitState, { type: 'OPEN_THE_HOUSE' });
+  assert.equal(splitState.activeApp, 'THE_HOUSE');
+  assert.equal(splitState.isWorldBuilderMode, false);
+
+  // 4. Assets created in Creation Tools sync into The House with room placement rules & personal bed guarantees
+  const starterChars = PRESET_SCENARIOS[0].characters.map((c) => ({ ...c }));
+  const customStove = {
+    ...DEFAULT_SMART_OBJECTS[0],
+    id: 'obj_custom_chef_stove',
+    name: 'Custom Chef Stove',
+    category: 'APPLIANCE',
+    room: 'Bedroom' as const, // Intentionally wrong room to verify room rule enforcement on sync
+    gridPos: { x: 6.5, y: 0, z: -3.2 },
+  };
+  const syncedObjRes = syncCreatedAssetToGameWorld({
+    assetType: 'SMART_OBJECT',
+    newSmartObject: customStove,
+    currentCharacters: starterChars,
+    currentSmartObjects: DEFAULT_SMART_OBJECTS,
+    timeStr: '01:15 PM',
+  });
+  assert.equal(syncedObjRes.enforcedRoom, 'Kitchen');
+  assert.equal(syncedObjRes.updatedSmartObjects.length, DEFAULT_SMART_OBJECTS.length + 1);
+  const addedStove = syncedObjRes.updatedSmartObjects.find((o) => o.id === 'obj_custom_chef_stove')!;
+  assert.equal(addedStove.room, 'Kitchen');
+
+  // Sync a custom CAS character created in Creation Tools and verify personal bed allocation in The House
+  const customChar = {
+    ...starterChars[0],
+    id: 'char_cas_nova',
+    name: 'Nova Sterling',
+  };
+  const syncedCharRes = syncCreatedAssetToGameWorld({
+    assetType: 'CHARACTER',
+    newCharacter: customChar,
+    currentCharacters: starterChars,
+    currentSmartObjects: syncedObjRes.updatedSmartObjects,
+    timeStr: '01:20 PM',
+  });
+  assert.equal(syncedCharRes.updatedCharacters.length, starterChars.length + 1);
+  const novaBed = syncedCharRes.updatedSmartObjects.find(
+    (o) => o.assignedToonId === 'char_cas_nova'
+  );
+  assert.ok(novaBed, 'Expected custom CAS character synced from Creation Tools to receive a personal bed in The House');
+});
+
+
 

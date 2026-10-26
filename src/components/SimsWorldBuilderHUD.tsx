@@ -168,7 +168,7 @@ export const SimsWorldBuilderHUD: React.FC<SimsWorldBuilderHUDProps> = ({
       data-testid="sims-world-builder-hud"
     >
       {/* 1. TOP-CENTER HYBRID BUILD MODE TOOLBAR (Paralives + Sims 4 + Tiny Glade) */}
-      <div className="w-full flex flex-col items-center pt-3 px-4 gap-2 pointer-events-none">
+      <div className="w-full flex flex-col items-center pt-16 px-4 gap-2 pointer-events-none">
         <div className="pointer-events-auto bg-slate-950/95 text-slate-100 border border-slate-700 rounded-2xl px-4 py-2 shadow-2xl flex flex-wrap items-center gap-2.5 max-w-[96vw]">
           {/* Mode Title & Household Funds */}
           <div className="flex items-center gap-2.5 pr-3 border-r border-slate-800">
